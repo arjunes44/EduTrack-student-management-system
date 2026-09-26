@@ -1,1 +1,57 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Requests | EduTrack</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="{{ url_for('static',filename='css/style.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/admin.css') }}"></head><body><header class="nav shell"><a class="brand" href="/"><span class="brand-mark">E</span> EduTrack</a><nav><a href="/students">Students</a><a href="/accounts">Portal accounts</a><form class="logout-form" method="post" action="/logout"><button class="nav-button">Sign out</button></form></nav></header><main class="admin-page shell"><p class="eyebrow"><i></i> Family communication</p><h1>Leave & contact requests</h1><section class="requests-list">{% for item in items %}<article class="request-card"><div><span class="request-kind">{{ item.kind }}</span><h2>{{ item.name }}</h2><p>{{ item.message }}</p><small>{{ item.created_at }}</small></div><div><b class="request-status {{ item.status|lower }}">{{ item.status }}</b>{% if item.status == 'Pending' %}<form method="post" action="/requests/{{ item.id }}"><button name="status" value="Approved">Approve</button><button class="decline" name="status" value="Declined">Decline</button></form>{% endif %}</div></article>{% else %}<p class="empty">No requests yet.</p>{% endfor %}</section></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Requests | EduTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/assistant.css') }}">
+</head>
+<body>
+  <header class="nav shell">
+    <a class="brand" href="/"><span class="brand-mark">E</span> EduTrack</a>
+    <nav>
+      <a href="/students">Students</a>
+      <a href="/accounts">Portal accounts</a>
+      <form class="logout-form" method="post" action="/logout">
+        <button class="nav-button">Sign out</button>
+      </form>
+    </nav>
+  </header>
+
+  <main class="admin-page shell">
+    <p class="eyebrow"><i></i> Family communication</p>
+    <h1>Leave &amp; contact requests</h1>
+
+    <section class="requests-list">
+      {% for item in items %}
+      <article class="request-card">
+        <div>
+          <span class="request-kind">{{ item.kind }}</span>
+          <h2>{{ item.name }}</h2>
+          <p>{{ item.message }}</p>
+          <small>{{ item.created_at }}</small>
+        </div>
+        <div>
+          <b class="request-status {{ item.status|lower }}">{{ item.status }}</b>
+          {% if item.status == 'Pending' %}
+          <form method="post" action="/requests/{{ item.id }}">
+            <button name="status" value="Approved">Approve</button>
+            <button class="decline" name="status" value="Declined">Decline</button>
+          </form>
+          {% endif %}
+        </div>
+      </article>
+      {% else %}
+      <p class="empty">No requests yet.</p>
+      {% endfor %}
+    </section>
+  </main>
+  {% include '_assistant.html' %}
+</body>
+</html>
+

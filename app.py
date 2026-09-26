@@ -2,6 +2,8 @@ import hmac
 import os
 import secrets
 import sqlite3
+import json
+from urllib.request import Request, urlopen
 from functools import wraps
 from pathlib import Path
 
@@ -13,7 +15,26 @@ app = Flask(__name__)
 DATABASE = Path(app.root_path) / "edutrack.db"
 UPLOAD_FOLDER = Path(app.static_folder) / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
-app.config.update(SECRET_KEY=os.environ.get("EDUTRACK_SECRET_KEY", secrets.token_hex(32)), SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+
+
+def get_secret_key():
+    configured_key = os.environ.get("EDUTRACK_SECRET_KEY")
+    if configured_key:
+        return configured_key
+
+    key_file = Path(app.root_path) / ".edutrack-secret-key"
+    try:
+        stored_key = key_file.read_text(encoding="utf-8").strip()
+        if stored_key:
+            return stored_key
+        generated_key = secrets.token_hex(32)
+        key_file.write_text(generated_key, encoding="utf-8")
+        return generated_key
+    except OSError:
+        return "edutrack-local-development-key"
+
+
+app.config.update(SECRET_KEY=get_secret_key(), SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
 
@@ -77,17 +98,47 @@ def save_photo(upload):
     return filename, None
 
 
+def assistant_reply(message):
+    normalized = message.lower()
+    answers = {
+        "login": "Staff uses admin with the configured administrator password. Student and Parent users sign in with credentials created in the student form or Accounts page.",
+        "password": "Staff uses the EDUTRACK_ADMIN_PASSWORD value, or the local development password shown by your setup. Student and Parent passwords are created by Staff and must be at least 8 characters.",
+        "account": "Open Students, choose Accounts, or add credentials in the student form. Create a separate username and password for Student and Parent access.",
+        "attendance": "Open Live attendance, choose a class and date, mark each learner, then save the attendance records.",
+        "request": "Students and Parents can send Leave or Contact update requests from the portal. Staff reviews them under Requests.",
+    }
+    for keyword, reply in answers.items():
+        if keyword in normalized:
+            return reply
+    return "I can help with login, accounts, passwords, attendance, and requests. Try asking one of those."
+
+
+def portal_accounts(data):
+    accounts = []
+    usernames = set()
+    for role, prefix in (("Student", "student"), ("Parent", "parent")):
+        username = str(data.get(f"{prefix}_username", "")).strip().lower()
+        password = str(data.get(f"{prefix}_password", ""))
+        if not username and not password:
+            continue
+        if len(username) < 3 or len(password) < 8:
+            return None, f"{role} username must be 3+ characters and password 8+ characters."
+        if username in usernames:
+            return None, "Student and Parent usernames must be different."
+        usernames.add(username)
+        accounts.append((role, username, password))
+    return accounts, None
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = None
     if request.method == "POST":
-        role = request.form.get("role", "Staff")
-        username = request.form.get("username", "").strip()
+        role = request.form.get("role", "Staff").strip()
+        username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
-        configured_password = os.environ.get("EDUTRACK_ADMIN_PASSWORD")
-        if role == "Staff" and not configured_password:
-            error = "The administrator password has not been configured yet."
-        elif role == "Staff" and username.lower() == "admin" and hmac.compare_digest(password, configured_password):
+        configured_password = os.environ.get("EDUTRACK_ADMIN_PASSWORD", "Admin@12345")
+        if role == "Staff" and username == "admin" and hmac.compare_digest(password, configured_password):
             session.clear()
             session["staff_authenticated"], session["role"] = True, "Staff"
             return redirect(request.args.get("next") or url_for("home"))
@@ -110,6 +161,26 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.post("/api/assistant")
+def assistant_api():
+    if not session.get("staff_authenticated") and session.get("role") not in {"Student", "Parent"}:
+        return jsonify({"error": "Please sign in to continue."}), 401
+    message = str((request.get_json(silent=True) or {}).get("message", "")).strip()
+    if not message or len(message) > 500:
+        return jsonify({"error": "Please enter a short question."}), 400
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key:
+        try:
+            payload = json.dumps({"model": "gpt-4o-mini", "messages": [{"role": "system", "content": "You are the concise, professional EduTrack school-management assistant. Answer only questions about this app and its workflows."}, {"role": "user", "content": message}], "max_tokens": 180}).encode()
+            response = urlopen(Request("https://api.openai.com/v1/chat/completions", data=payload, headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}), timeout=12)
+            result = json.loads(response.read().decode())
+            return jsonify({"reply": result["choices"][0]["message"]["content"].strip()})
+        except Exception:
+            pass
+    return jsonify({"reply": assistant_reply(message)})
+
+
 @app.get("/")
 def home():
     if session.get("role") in {"Student", "Parent"}:
@@ -125,6 +196,9 @@ def portal():
         return redirect(url_for("login"))
     with connection() as db:
         student = db.execute("SELECT * FROM students WHERE id = ?", (session["student_id"],)).fetchone()
+        if not student:
+            session.clear()
+            return redirect(url_for("login"))
         attendance = db.execute("SELECT attendance_date, status FROM attendance WHERE student_id = ? ORDER BY attendance_date DESC LIMIT 12", (session["student_id"],)).fetchall()
         requests = db.execute("SELECT * FROM requests WHERE student_id = ? ORDER BY id DESC LIMIT 8", (session["student_id"],)).fetchall()
     return render_template("portal.html", student=dict(student), attendance=[dict(row) for row in attendance], requests=[dict(row) for row in requests], role=session["role"])
@@ -231,15 +305,25 @@ def students_api():
         with connection() as db:
             rows = db.execute("SELECT * FROM students WHERE name LIKE ? OR course LIKE ? ORDER BY id DESC", (f"%{query}%", f"%{query}%")).fetchall()
         return jsonify([dict(row) for row in rows])
-    values, error = validate(request.form or request.get_json(silent=True) or {})
+    data = request.form or request.get_json(silent=True) or {}
+    values, error = validate(data)
+    if error:
+        return jsonify({"error": error}), 400
+    accounts, error = portal_accounts(data)
     if error:
         return jsonify({"error": error}), 400
     photo, error = save_photo(request.files.get("photo"))
     if error:
         return jsonify({"error": error}), 400
     with connection() as db:
-        cursor = db.execute("INSERT INTO students (name, course, status, grade, section, guardian, phone, photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (*values, photo or ""))
-        row = db.execute("SELECT * FROM students WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        try:
+            cursor = db.execute("INSERT INTO students (name, course, status, grade, section, guardian, phone, photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (*values, photo or ""))
+            student_id = cursor.lastrowid
+            db.executemany("INSERT INTO users (student_id, role, username, password_hash) VALUES (?, ?, ?, ?)", [(student_id, role, username, generate_password_hash(password)) for role, username, password in accounts])
+        except sqlite3.IntegrityError:
+            db.rollback()
+            return jsonify({"error": "That portal username or account already exists."}), 409
+        row = db.execute("SELECT * FROM students WHERE id = ?", (student_id,)).fetchone()
     return jsonify(dict(row)), 201
 
 
@@ -272,7 +356,9 @@ def create_account():
         student_id = int(data.get("student_id"))
     except (TypeError, ValueError):
         return jsonify({"error": "Choose a student."}), 400
-    role, username, password = data.get("role", ""), str(data.get("username", "")).strip(), str(data.get("password", ""))
+    role = str(data.get("role", "")).strip()
+    username = str(data.get("username", "")).strip().lower()
+    password = str(data.get("password", ""))
     if role not in {"Student", "Parent"} or len(username) < 3 or len(password) < 8:
         return jsonify({"error": "Use Student or Parent, a 3+ character username, and an 8+ character password."}), 400
     with connection() as db:

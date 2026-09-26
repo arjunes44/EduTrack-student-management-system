@@ -8,6 +8,7 @@ const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({ '&': '&
 
 const nameLabel = form.querySelector('input[name="name"]').closest('label');
 nameLabel.insertAdjacentHTML('beforebegin', '<label>Student photo <input class="photo-input" type="file" name="photo" accept="image/png,image/jpeg,image/webp"></label>');
+form.querySelector('button[type="submit"]').insertAdjacentHTML('beforebegin', '<fieldset class="portal-credentials"><legend>Portal login (optional)</legend><label>Student username<input name="student_username" minlength="3" autocomplete="off" placeholder="Optional"></label><label>Student password<input name="student_password" type="password" minlength="8" autocomplete="new-password" placeholder="8+ characters"></label><label>Parent username<input name="parent_username" minlength="3" autocomplete="off" placeholder="Optional"></label><label>Parent password<input name="parent_password" type="password" minlength="8" autocomplete="new-password" placeholder="8+ characters"></label></fieldset>');
 
 function updateClock() {
   const clock = document.querySelector('#live-clock');

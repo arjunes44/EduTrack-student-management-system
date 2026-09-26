@@ -1,0 +1,22 @@
+<button class="assistant-launcher" id="assistant-launcher" type="button" aria-label="Open EduTrack assistant" aria-expanded="false">
+  <span class="assistant-orb">✦</span>
+  <span>EduTrack help</span>
+</button>
+
+<aside class="assistant-panel" id="assistant-panel" aria-hidden="true" aria-label="EduTrack assistant">
+  <div class="assistant-header">
+    <div>
+      <p class="eyebrow"><i></i> EduTrack assistant</p>
+      <h2>How can I help?</h2>
+    </div>
+    <button class="assistant-close" id="assistant-close" type="button" aria-label="Close assistant">×</button>
+  </div>
+  <div class="assistant-messages" id="assistant-messages" aria-live="polite">
+    <div class="assistant-message assistant-message-bot">Ask about accounts, attendance, student records, or requests.</div>
+  </div>
+  <form class="assistant-form" id="assistant-form">
+    <input id="assistant-input" name="message" autocomplete="off" placeholder="Ask EduTrack..." aria-label="Message">
+    <button class="assistant-send" type="submit" aria-label="Send message">→</button>
+  </form>
+</aside>
+<script src="{{ url_for('static', filename='js/assistant.js') }}"></script>

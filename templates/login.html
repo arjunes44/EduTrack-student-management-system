@@ -1,1 +1,56 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in | EduTrack</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}"></head><body class="login-page"><div class="glow glow-one"></div><div class="glow glow-two"></div><main class="login-wrap"><a class="brand" href="/"><span class="brand-mark">E</span> EduTrack</a><form method="post" class="login-card"><p class="eyebrow"><i></i> Secure school portal</p><h1>Welcome back.</h1><p>Select your access type, then sign in with your username and password.</p>{% if error %}<div class="login-error">{{ error }}</div>{% endif %}<label>Sign in as<select name="role"><option>Staff</option><option>Student</option><option>Parent</option></select></label><label>Username<input required autofocus name="username" autocomplete="username" placeholder="Your username"></label><label>Password<input required type="password" name="password" autocomplete="current-password" placeholder="Enter your password"></label><button class="button primary" type="submit">Sign in <span>→</span></button><small>Staff create student and parent accounts from the Student Profiles page.</small></form></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in | EduTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body class="login-page">
+  <div class="glow glow-one"></div>
+  <div class="glow glow-two"></div>
+
+  <main class="login-wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark">E</span> EduTrack
+    </a>
+
+    <form method="post" class="login-card">
+      <p class="eyebrow"><i></i> Secure school portal</p>
+      <h1>Welcome back.</h1>
+      <p>Select your access type, then sign in with your username and password.</p>
+
+      {% if error %}
+      <div class="login-error">{{ error }}</div>
+      {% endif %}
+
+      <label>
+        Sign in as
+        <select name="role">
+          <option>Staff</option>
+          <option>Student</option>
+          <option>Parent</option>
+        </select>
+      </label>
+
+      <label>
+        Username
+        <input required autofocus name="username" autocomplete="username" placeholder="Your username">
+      </label>
+
+      <label>
+        Password
+        <input required type="password" name="password" autocomplete="current-password" placeholder="Enter your password">
+      </label>
+
+      <button class="button primary" type="submit">Sign in <span>→</span></button>
+      <small>Staff create student and parent accounts from the Student Profiles page.</small>
+    </form>
+  </main>
+</body>
+</html>
+
